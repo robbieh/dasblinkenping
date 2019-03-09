@@ -1,0 +1,12 @@
+[package]
+name = "dasblinkenping"
+version = "0.1.0"
+authors = ["Robbie Huffman <robbie.huffman@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+futures = "0.1"
+tokio = "0.1.16"
+tokio-ping = "0.2.0"
+termion = "1.5.1"
+
