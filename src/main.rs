@@ -27,13 +27,17 @@ use futures::{Future, Stream};
 fn main() {
     let mut stdout = stdout().into_raw_mode().unwrap();
     writeln!(stdout,"{}", clear::All);
+    writeln!(stdout,"{}", cursor::Goto(4,3));
+    writeln!(stdout,"○○○○○○○○○○");
     writeln!(stdout,"{}", cursor::Goto(4,4));
     writeln!(stdout,"○○○○○○○○○○");
     writeln!(stdout,"{}", cursor::Goto(4,5));
     writeln!(stdout,"○○○○○○○○○○");
     writeln!(stdout,"{}", cursor::Goto(4,6));
     writeln!(stdout,"○○○○○○○○○○");
-    writeln!(stdout,"{}", cursor::Goto(4,6));
+    writeln!(stdout,"{}", cursor::Goto(4,7));
+    writeln!(stdout,"○○○○○○○○○○");
+    writeln!(stdout,"{}", cursor::Goto(4,8));
     writeln!(stdout,"○○○○○○○○○○");
 
 
