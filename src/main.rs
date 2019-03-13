@@ -7,6 +7,8 @@ extern crate tokio_ping;
 extern crate termion;
 
 use std::io::{Write, stdout, stdin};
+use std::net::{IpAddr};
+use std::sync::{Arc,RwLock};
 
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -22,21 +24,18 @@ use termion::{color, clear, cursor};
 
 //use crate::util::event::{Event, Events};
 
+#[derive(Debug,Clone)]
+pub enum PingData {
+    Addr(IpAddr),
+    RTT(Arc<RwLock<i32>>)
+}
+
 use futures::{Future, Stream};
 
 fn main() {
+    let ips: Vec<IpAddr> = Vec::new();
     let mut stdout = stdout().into_raw_mode().unwrap();
     writeln!(stdout,"{}", clear::All);
-    writeln!(stdout,"{}", cursor::Goto(4,3));
-    writeln!(stdout,"○○○○○○○○○○");
-    writeln!(stdout,"{}", cursor::Goto(4,4));
-    writeln!(stdout,"○○○○○○○○○○");
-    writeln!(stdout,"{}", cursor::Goto(4,5));
-    writeln!(stdout,"○○○○○○○○○○");
-    writeln!(stdout,"{}", cursor::Goto(4,6));
-    writeln!(stdout,"○○○○○○○○○○");
-    writeln!(stdout,"{}", cursor::Goto(4,7));
-    writeln!(stdout,"○○○○○○○○○○");
     writeln!(stdout,"{}", cursor::Goto(4,8));
     writeln!(stdout,"○○○○○○○○○○");
 
