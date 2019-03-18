@@ -5,6 +5,7 @@ authors = ["Robbie Huffman <robbie.huffman@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+fastping-rs = "0.1.2"
 futures = "0.1"
 oping = "0.3.3"
 rand = "0.6.5"

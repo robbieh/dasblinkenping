@@ -7,7 +7,12 @@ extern crate tokio_ping;
 extern crate termion;
 extern crate rand;
 
-use oping::{Ping};
+//use crate::util::event::{Event, Events};
+
+use fastping_rs::Pinger;
+use fastping_rs::PingResult::{Idle, Receive};
+
+use futures::{Future, Stream};
 
 use rand::Rng;
 
@@ -32,7 +37,6 @@ use termion::{cursor};
 //use tui::widgets::{Block, Borders, Row, Table, Widget};
 //use tui::Terminal;
 
-//use crate::util::event::{Event, Events};
 
 #[derive(Debug,Clone)]
 pub struct PingData {
@@ -40,7 +44,6 @@ pub struct PingData {
     rtt: Arc<RwLock<i32>>
 }
 
-//use futures::{Future, Stream};
 
 //writeln!(stdout,"{}", cursor::Goto(4,8));
 //writeln!(stdout,"○○○○○○○○○○");
@@ -68,18 +71,14 @@ fn draw(size: usize, ips: Vec<PingData>) {
 }
 
 fn do_ping(addr: IpAddr) -> i32 {
-    let mut ping = Ping::new();
-    ping.set_timeout(5.0).expect("Fail to set timeout");
-    ping.add_host(&addr.to_string()).expect("Failed add host to ping list");
-    let responses = ping.send().unwrap();
-    for resp in responses {
-        if resp.dropped > 0 {
-            return 500;
-        } else {
-            return resp.latency_ms as i32;
+    let pinger = tokio_ping::Pinger::new();
+    let foo = pinger.then(move |pinger| {
+        match pinger.ping(addr, 0, 1, time::Duration::from_millis(5000)) {
+            Some(time) => time,
+            None => 0,
         }
-    }
-    return 500;
+    });
+    foo
 }
 
 fn ping_loop(pd: PingData) {
