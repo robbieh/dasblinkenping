@@ -43,18 +43,18 @@ use futures::{Future, Stream};
 //writeln!(stdout,"○○○○○○○○○○");
 fn draw(size: usize, ips: Vec<PingData>) {
     let symbols = " +o○";
-    //let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut stdout = stdout().into_raw_mode().unwrap();
     loop{
-        //writeln!(stdout,"{}", clear::All);
+        writeln!(stdout,"{}", clear::All);
         for n in 0..(size * size) {
             //println!("{:#?}, {:#?}", (n % size) + 1, ( n as f32 / size as f32) as u16 + 1);
-            //writeln!(stdout,"{}", cursor::Goto((n % size) as u16 + 1, (n as f32 / size as f32) as u16 + 1) );
+            writeln!(stdout,"{}", cursor::Goto((n % size) as u16 + 1, (n as f32 / size as f32) as u16 + 1) );
             let pd = *ips[n].clone().rtt.read().unwrap();
-            println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
-            //if      pd > 750 { writeln!(stdout,"{}",  symbols.chars().nth(3).unwrap() ); } 
-            //else if pd > 500 { writeln!(stdout,"{}",  symbols.chars().nth(2).unwrap() ); }
-            //else if pd > 250 { writeln!(stdout,"{}",  symbols.chars().nth(1).unwrap() ); }
-            //else             { writeln!(stdout,"{}",  symbols.chars().nth(0).unwrap() ); }
+            //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
+            if      pd > 750 { writeln!(stdout,"{}",  symbols.chars().nth(3).unwrap() ); } 
+            else if pd > 500 { writeln!(stdout,"{}",  symbols.chars().nth(2).unwrap() ); }
+            else if pd > 250 { writeln!(stdout,"{}",  symbols.chars().nth(1).unwrap() ); }
+            else             { writeln!(stdout,"{}",  symbols.chars().nth(0).unwrap() ); }
         }
         thread::sleep(time::Duration::from_millis(100));
     }
@@ -63,7 +63,7 @@ fn draw(size: usize, ips: Vec<PingData>) {
 fn pingLoop(pd: PingData) {
     loop {
         let duration = rand::thread_rng().gen_range(0,1000);
-        println!("{:?}, {:?}", pd.addr, duration);
+        //println!("{:?}, {:?}", pd.addr, duration);
         thread::sleep(time::Duration::from_millis(duration));
         let mut w = pd.rtt.write().unwrap();
         *w = duration as i32;
@@ -71,8 +71,11 @@ fn pingLoop(pd: PingData) {
 }
 
 fn main() {
-    let size = 4;
-    let ips: Vec<PingData> = vec![PingData{addr: IpAddr::V4(Ipv4Addr::new(0,0,0,0)), rtt: Arc::new(RwLock::new(0))}; size * size];
+    let size = 8;
+    let mut ips: Vec<PingData> = Vec::with_capacity(size * size);
+    for n in 0..(size * size) {
+        ips.push(PingData{addr: IpAddr::V4(Ipv4Addr::new(0,0,0,n as u8)), rtt: Arc::new(RwLock::new(0))});
+    }
     for ip in &ips {
         let myip = ip.clone();
         thread::spawn(move || {
