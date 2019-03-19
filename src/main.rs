@@ -1,40 +1,35 @@
 #[allow(dead_code)]
 #[allow(unused)]
 
-extern crate futures;
-extern crate tokio;
-extern crate tokio_ping;
+extern crate ctrlc;
 extern crate termion;
 extern crate rand;
-
-//use crate::util::event::{Event, Events};
 
 use fastping_rs::Pinger;
 use fastping_rs::PingResult::{Idle, Receive};
 
-use futures::{Future, Stream};
-
-use rand::Rng;
-
 use std::collections::{HashMap};
-//use std::io::{Write, stdout, stdin};
-use std::io::{Write, stdout };
+use std::io::{Read, Write, stdout};
 use std::net::{IpAddr, Ipv4Addr};
-use std::sync::{Arc,RwLock};
-use std::thread;
-use std::time;
+use std::sync::{Arc};
+use std::sync::atomic::{AtomicBool,Ordering};
 
-//use termion::event::Key;
-//use termion::input::MouseTerminal;
+use termion::event::{Event,Key};
+//use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 //use termion::screen::AlternateScreen;
-//use termion::{color, clear, cursor};
-use termion::{cursor};
+use termion::{async_stdin, clear, cursor};
              
 fn main() {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
+
     let size = 16;
     let mut ips_hash = HashMap::new();
-    let (mut pinger, results) = match Pinger::new(None,None) {
+    let (pinger, results) = match Pinger::new(None,None) {
         Ok((pinger, results)) => (pinger, results),
         Err(e) => panic!("Error creating pinger: {}",e)
     };
@@ -53,7 +48,15 @@ fn main() {
     let s1 = symbols.chars().nth(1).unwrap();
     let s0 = symbols.chars().nth(0).unwrap();
     let mut stdout = stdout().into_raw_mode().unwrap();
-    loop{
+    let mut stdin = async_stdin().bytes();
+    writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
+    writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
+    'mainloop: loop{
+        if ! running.load(Ordering::SeqCst) { 
+            writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
+            pinger.stop_pinger();
+            break; 
+        };
         match results.recv() {
             Ok(result) => {
                 let (addr, rtt) = match result { 
@@ -64,18 +67,26 @@ fn main() {
                     Some(pos) => *pos as isize,
                     None => { continue }
                 };
-                writeln!(stdout,"{}", cursor::Goto((pos % size) as u16 + 1, (pos as f32 /
+                writeln!(stdout,"{}", cursor::Goto((pos % size as isize) as u16 + 1, (pos as f32 /
                                                                              size as f32)
                                                    as u16 + 1) ).expect("X");
                 //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
-                if      rtt > 100 { writeln!(stdout,"{}", s5).expect("X"); } 
+                if      rtt ==5000 { writeln!(stdout,"{}", s5).expect("X"); } 
                 else if rtt > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
                 else if rtt > 25  { writeln!(stdout,"{}", s3).expect("X"); } 
                 else if rtt > 10  { writeln!(stdout,"{}", s2).expect("X"); }
-                else if rtt > 2   { writeln!(stdout,"{}", s1).expect("X"); }
+                else if rtt > 5   { writeln!(stdout,"{}", s1).expect("X"); }
                 else             { writeln!(stdout,"{}", s0).expect("X"); }
             },
             Err(_) => panic!("Could not run pinger"),
         }
+        writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
+        for c in stdin.next() {
+            match c.unwrap() {
+                b'q' => break 'mainloop,
+                _ => {}
+            }
+        }
     }
+    writeln!(stdout,"{}", cursor::Show).expect("Cout not hide cursor");
 }
