@@ -14,10 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool,Ordering};
 
-use termion::event::{Event,Key};
-//use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-//use termion::screen::AlternateScreen;
 use termion::{async_stdin, clear, cursor};
              
 fn main() {
@@ -67,10 +64,9 @@ fn main() {
                     Some(pos) => *pos as isize,
                     None => { continue }
                 };
-                writeln!(stdout,"{}", cursor::Goto((pos % size as isize) as u16 + 1, (pos as f32 /
-                                                                             size as f32)
-                                                   as u16 + 1) ).expect("X");
-                //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
+                writeln!(stdout,"{}", 
+                     cursor::Goto((pos % size as isize) as u16 + 1, 
+                                  (pos as f32 / size as f32) as u16 + 1)).expect("X");
                 if      rtt ==5000 { writeln!(stdout,"{}", s5).expect("X"); } 
                 else if rtt > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
                 else if rtt > 25  { writeln!(stdout,"{}", s3).expect("X"); } 
