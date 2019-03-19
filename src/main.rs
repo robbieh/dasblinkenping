@@ -16,7 +16,7 @@ use futures::{Future, Stream};
 
 use rand::Rng;
 
-//use std::collections::{VecDeque};
+use std::collections::{HashMap};
 //use std::io::{Write, stdout, stdin};
 use std::io::{Write, stdout };
 use std::net::{IpAddr, Ipv4Addr};
@@ -31,23 +31,20 @@ use termion::raw::IntoRawMode;
 //use termion::{color, clear, cursor};
 use termion::{cursor};
              
-//use tui::backend::TermionBackend;
-//use tui::layout::{Constraint, Layout};
-//use tui::style::{Color, Modifier, Style};
-//use tui::widgets::{Block, Borders, Row, Table, Widget};
-//use tui::Terminal;
+fn main() {
+    let size = 16;
+    let mut ips_hash = HashMap::new();
+    let (mut pinger, results) = match Pinger::new(None,None) {
+        Ok((pinger, results)) => (pinger, results),
+        Err(e) => panic!("Error creating pinger: {}",e)
+    };
+    for n in 0..(size * size) {
+        let addr_str = IpAddr::V4(Ipv4Addr::new(192,168,2,n as u8)).to_string();
+        pinger.add_ipaddr(&addr_str);
+        ips_hash.insert(addr_str, n as isize);
+    }
+    pinger.run_pinger();
 
-
-#[derive(Debug,Clone)]
-pub struct PingData {
-    addr: IpAddr,
-    rtt: Arc<RwLock<i32>>
-}
-
-
-//writeln!(stdout,"{}", cursor::Goto(4,8));
-//writeln!(stdout,"○○○○○○○○○○");
-fn draw(size: usize, ips: Vec<PingData>) {
     let symbols = "⋅∘○◎● ";
     let s5 = symbols.chars().nth(5).unwrap();
     let s4 = symbols.chars().nth(4).unwrap();
@@ -56,70 +53,29 @@ fn draw(size: usize, ips: Vec<PingData>) {
     let s1 = symbols.chars().nth(1).unwrap();
     let s0 = symbols.chars().nth(0).unwrap();
     let mut stdout = stdout().into_raw_mode().unwrap();
-    //writeln!(stdout,"{}", clear::All);
     loop{
-        for n in 0..(size * size) {
-            //println!("{:#?}, {:#?}", (n % size) + 1, ( n as f32 / size as f32) as u16 + 1);
-            writeln!(stdout,"{}", cursor::Goto((n % size) as u16 + 1, (n as f32 / size as f32) as u16 + 1) ).expect("X");
-            let pd = *ips[n].clone().rtt.read().unwrap();
-            //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
-            if      pd > 100 { writeln!(stdout,"{}", s5).expect("X"); } 
-            else if pd > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
-            else if pd > 25  { writeln!(stdout,"{}", s3).expect("X"); } 
-            else if pd > 10  { writeln!(stdout,"{}", s2).expect("X"); }
-            else if pd > 2   { writeln!(stdout,"{}", s1).expect("X"); }
-            else             { writeln!(stdout,"{}", s0).expect("X"); }
+        match results.recv() {
+            Ok(result) => {
+                let (addr, rtt) = match result { 
+                    Idle{addr}         => { (addr, 5000            as isize) },
+                    Receive{addr, rtt} => { (addr, rtt.as_millis() as isize) }
+                };
+                let pos = match ips_hash.get(&addr.to_string()) {
+                    Some(pos) => *pos as isize,
+                    None => panic!("I'm broken")
+                };
+                writeln!(stdout,"{}", cursor::Goto((pos % size) as u16 + 1, (pos as f32 /
+                                                                             size as f32)
+                                                   as u16 + 1) ).expect("X");
+                //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
+                if      pos > 40  { writeln!(stdout,"{}", s5).expect("X"); } 
+                else if pos > 20  { writeln!(stdout,"{}", s4).expect("X"); } 
+                else if pos > 20  { writeln!(stdout,"{}", s3).expect("X"); } 
+                else if pos > 10  { writeln!(stdout,"{}", s2).expect("X"); }
+                else if pos > 2   { writeln!(stdout,"{}", s1).expect("X"); }
+                else              { writeln!(stdout,"{}", s0).expect("X"); }
+            },
+            Err(_) => panic!("Could not run pinger"),
         }
-        thread::sleep(time::Duration::from_millis(10));
     }
-}
-
-fn do_ping(addr: IpAddr) -> i32 {
-    let (mut pinger, results) = match Pinger::new(None,None) {
-        Ok((pinger, results)) => (pinger, results),
-        Err(e) => panic!("Error creating pinger: {}",e)
-    };
-    pinger.add_ipaddr(&addr.to_string());
-    pinger.ping_once();
-    pinger.stop_pinger();
-    match results.recv() {
-        Ok(result) => {
-            match result { 
-                Idle{addr} => { 
-                    //println!("Idle address: {}", addr); 
-                    5000},
-                Receive{addr, rtt} => { 
-                    //println!("{} {}", addr, rtt.as_millis() as i32);
-                    (rtt.as_millis()) as i32  }
-            }
-        },
-        Err(_) => panic!("Could not run pinger"),
-    }
-}
-
-fn ping_loop(pd: PingData) {
-    loop {
-        let duration = rand::thread_rng().gen_range(0,1000);
-        //println!("{:?}, {:?}", pd.addr, duration);
-        thread::sleep(time::Duration::from_millis(duration));
-        let rtt = do_ping(pd.addr);
-        let mut w = pd.rtt.write().unwrap();
-        //*w = duration as i32;
-        *w = rtt;
-    }
-}
-
-fn main() {
-    let size = 15;
-    let mut ips: Vec<PingData> = Vec::with_capacity(size * size);
-    for n in 0..(size * size) {
-        ips.push(PingData{addr: IpAddr::V4(Ipv4Addr::new(192,168,2,n as u8)), rtt: Arc::new(RwLock::new(0))});
-    }
-    for ip in &ips {
-        let myip = ip.clone();
-        thread::spawn(move || {
-            ping_loop(myip)
-        });
-    }
-    draw(size, ips);
 }
