@@ -62,18 +62,18 @@ fn main() {
                 };
                 let pos = match ips_hash.get(&addr.to_string()) {
                     Some(pos) => *pos as isize,
-                    None => panic!("I'm broken")
+                    None => { continue }
                 };
                 writeln!(stdout,"{}", cursor::Goto((pos % size) as u16 + 1, (pos as f32 /
                                                                              size as f32)
                                                    as u16 + 1) ).expect("X");
                 //println!("loop-{:?}, {:?}, {:?}", n, ips[n].addr, pd);
-                if      pos > 40  { writeln!(stdout,"{}", s5).expect("X"); } 
-                else if pos > 20  { writeln!(stdout,"{}", s4).expect("X"); } 
-                else if pos > 20  { writeln!(stdout,"{}", s3).expect("X"); } 
-                else if pos > 10  { writeln!(stdout,"{}", s2).expect("X"); }
-                else if pos > 2   { writeln!(stdout,"{}", s1).expect("X"); }
-                else              { writeln!(stdout,"{}", s0).expect("X"); }
+                if      rtt > 100 { writeln!(stdout,"{}", s5).expect("X"); } 
+                else if rtt > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
+                else if rtt > 25  { writeln!(stdout,"{}", s3).expect("X"); } 
+                else if rtt > 10  { writeln!(stdout,"{}", s2).expect("X"); }
+                else if rtt > 2   { writeln!(stdout,"{}", s1).expect("X"); }
+                else             { writeln!(stdout,"{}", s0).expect("X"); }
             },
             Err(_) => panic!("Could not run pinger"),
         }
