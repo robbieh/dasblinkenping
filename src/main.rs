@@ -1,39 +1,100 @@
 #[allow(dead_code)]
 #[allow(unused)]
 
+#[macro_use] extern crate lazy_static;
+
+extern crate cidr;
 extern crate ctrlc;
 extern crate termion;
 extern crate rand;
+extern crate regex;
 
+use cidr::Cidr;
+use cidr::Ipv4Cidr;
+use cidr::IpCidr;
 use fastping_rs::Pinger;
 use fastping_rs::PingResult::{Idle, Receive};
 
+use regex::Regex;
 use std::collections::{HashMap};
+use std::env;
 use std::io::{Read, Write, stdout};
 use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool,Ordering};
 
 use termion::raw::IntoRawMode;
 use termion::{async_stdin, clear, cursor};
+
+
+#[derive(Debug, Clone)]
+pub struct Params {
+    ip_strings: Vec<String>,
+}
+
+fn expand_ip_star(ipstr: &str, p: &mut Params){
+    println!("star: {:#?}", ipstr);
+    p.ip_strings.push(ipstr.to_string());
+}
+
+fn expand_ip_slash(ipstr: &str, p: &mut Params){
+    println!("slash: {:#?}", ipstr);
+    p.ip_strings.push(ipstr.to_string());
+}
+
+fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
+    match cidr::IpCidr::from_str(ipcidr) {
+        Ok(cidr) => {
+            println!("cidr: {:#?}", cidr);
+            if cidr.is_ipv4() {
+                let cidr4 = <IpCidr>::from(cidr);
+                for ip in cidr4.iter() {
+                    println!("cidr ip: {:#?}", ip);
+                    p.ip_strings.push(ip.to_string());
+                }
+            }
+        },
+        _ => { println!("not a cidr: {:#?}", ipcidr);}
+    };
+}
+
+fn parse_args() -> Params {
+    //let mut p = Params { ip_strings: Vec::<String>::new() };
+    let mut p = Params { ip_strings: Vec::with_capacity(256), };
+    for arg in env::args() {
+        expand_ip_cidr(&arg, &mut p);
+        //if arg.contains("*") { expand_ip_star(&arg, &mut p); }
+        //if arg.contains("/") { expand_ip_slash(&arg, &mut p); }
+
+    };
+    p
+}
              
 fn main() {
+    let mut p = parse_args();
+    println!("params: {:#?}", p);
+
+    //ctrlc
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
     }).expect("Error setting Ctrl-C handler");
 
-    let size = 16;
+    let count = p.ip_strings.len();
+    println!("count: {:#?}", count);
+    let sqrt = (count as f64).sqrt();
+    println!("sqrt: {:#?}", sqrt);
+    let size = sqrt.ceil() as u16;
     let mut ips_hash = HashMap::new();
     let (pinger, results) = match Pinger::new(None,None) {
         Ok((pinger, results)) => (pinger, results),
         Err(e) => panic!("Error creating pinger: {}",e)
     };
-    for n in 0..(size * size) {
-        let addr_str = IpAddr::V4(Ipv4Addr::new(192,168,2,n as u8)).to_string();
-        pinger.add_ipaddr(&addr_str);
-        ips_hash.insert(addr_str, n as isize);
+    for n in 0..count {
+        pinger.add_ipaddr(&p.ip_strings[n]);
+        ips_hash.insert(&p.ip_strings[n], n as isize);
     }
     pinger.run_pinger();
 
