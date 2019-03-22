@@ -88,7 +88,7 @@ fn main() {
     println!("sqrt: {:#?}", sqrt);
     let size = sqrt.ceil() as u16;
     let mut ips_hash = HashMap::new();
-    let (pinger, results) = match Pinger::new(None,None) {
+    let (pinger, results) = match Pinger::new(Some(10000),None) {
         Ok((pinger, results)) => (pinger, results),
         Err(e) => panic!("Error creating pinger: {}",e)
     };
@@ -98,7 +98,7 @@ fn main() {
     }
     pinger.run_pinger();
 
-    let symbols = "⋅∘○◎● ";
+    let symbols = "∘○⊙⊚●⋅";
     let s5 = symbols.chars().nth(5).unwrap();
     let s4 = symbols.chars().nth(4).unwrap();
     let s3 = symbols.chars().nth(3).unwrap();
