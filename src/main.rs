@@ -12,8 +12,6 @@ extern crate termion;
 
 mod hilbert;
 
-use hilbert::Point;
-
 use cidr::Cidr;
 use cidr::IpCidr;
 use fastping_rs::Pinger;
@@ -38,11 +36,11 @@ pub struct Params {
 fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
     match cidr::IpCidr::from_str(ipcidr) {
         Ok(cidr) => {
-            println!("cidr: {:#?}", cidr);
+            //println!("cidr: {:#?}", cidr);
             if cidr.is_ipv4() {
                 let cidr4 = <IpCidr>::from(cidr);
                 for ip in cidr4.iter() {
-                    println!("cidr ip: {:#?}", ip);
+                    //println!("cidr ip: {:#?}", ip);
                     p.ip_strings.push(ip.to_string());
                 }
             }
@@ -64,23 +62,6 @@ fn parse_args() -> Params {
 }
              
 fn main() {
-    let out = hilbert::hilbert(2);
-    println!("{:#?}", out);
-    let mut stdout = stdout().into_raw_mode().unwrap();
-    //writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
-    //writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
-    for n in 0..64 {
-        let x = out[n].x as u16;
-        let y = out[n].y as u16;
-        //println!("{:?},{:?}",x,y);
-        writeln!(stdout,"{}{}", 
-                 cursor::Goto(x + 50,y + 20), 
-                 (n as u8+65) as char
-                 ).expect("X");
-    }
-    writeln!(stdout,"{}", cursor::Goto(1,60)).expect("X");
-
-    std::process::exit(0);
     let p = parse_args();
     println!("params: {:#?}", p);
 
@@ -95,15 +76,21 @@ fn main() {
     println!("count: {:#?}", count);
     let sqrt = (count as f64).sqrt();
     println!("sqrt: {:#?}", sqrt);
-    let size = sqrt.ceil() as u16;
+    let sqrt_again = (sqrt as f64).sqrt();
+    println!("sqrt_again: {:#?}", sqrt_again);
+    let mut size = sqrt_again.ceil() as u16;
+    size = (2.0_f64).powi(size as i32 ) as u16;
+    println!("size: {:#?}", size);
+    let hilbert_points = hilbert::hilbert(sqrt_again.ceil() as isize);
     let mut ips_hash = HashMap::new();
     let (pinger, results) = match Pinger::new(Some(10000),None) {
         Ok((pinger, results)) => (pinger, results),
         Err(e) => panic!("Error creating pinger: {}",e)
     };
+        //println!("{:?},{:?}",x,y);
     for n in 0..count {
         pinger.add_ipaddr(&p.ip_strings[n]);
-        ips_hash.insert(&p.ip_strings[n], n as isize);
+        ips_hash.insert(&p.ip_strings[n], hilbert_points[n].clone());
     }
     pinger.run_pinger();
 
@@ -114,7 +101,7 @@ fn main() {
     let s2 = symbols.chars().nth(2).unwrap();
     let s1 = symbols.chars().nth(1).unwrap();
     let s0 = symbols.chars().nth(0).unwrap();
-    //let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut stdout = stdout().into_raw_mode().unwrap();
     let mut stdin = async_stdin().bytes();
     writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
     writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
@@ -131,12 +118,10 @@ fn main() {
                     Receive{addr, rtt} => { (addr, rtt.as_millis() as isize) }
                 };
                 let pos = match ips_hash.get(&addr.to_string()) {
-                    Some(pos) => *pos as isize,
+                    Some(pos) => pos,
                     None => { continue }
                 };
-                writeln!(stdout,"{}", 
-                     cursor::Goto((pos % size as isize) as u16 + 1, 
-                                  (pos as f32 / size as f32) as u16 + 1)).expect("X");
+                writeln!(stdout,"{}", cursor::Goto(pos.x,pos.y)).expect("X");
                 if      rtt ==5000 { writeln!(stdout,"{}", s5).expect("X"); } 
                 else if rtt > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
                 else if rtt > 25  { writeln!(stdout,"{}", s3).expect("X"); } 

@@ -8,8 +8,8 @@ const R: &str  = "-LF+RFR+FL-";
 
 #[derive(Clone)]
 pub struct Point {
-    pub x: isize,
-    pub y: isize
+    pub x: u16,
+    pub y: u16
 }
 
 impl std::fmt::Debug for Point {
@@ -20,7 +20,7 @@ impl std::fmt::Debug for Point {
 
 fn apply_hilbert(rules: String, iterations: isize, dir: &mut isize, 
                      points:&mut Vec<Point>, current: &mut Point) {
-    println!("{:#?} {:#?} {:?}", current, rules, iterations);
+    //println!("{:#?} {:#?} {:?}", current, rules, iterations);
     for c in rules.chars() {
         match c {
             'R' => if iterations != 0 
@@ -50,7 +50,7 @@ fn apply_hilbert(rules: String, iterations: isize, dir: &mut isize,
 pub fn hilbert(iterations: isize ) -> Vec<Point>{
     let mut points = Vec::<Point>::new();
     let mut point = Point{x: 1,y: 1};
-    apply_hilbert(L.to_string(), iterations, &mut 5, &mut points, &mut point);
+    apply_hilbert(L.to_string(), iterations, &mut 257, &mut points, &mut point);
     points.push(point.clone());
     points
 }
