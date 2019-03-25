@@ -12,17 +12,16 @@ extern crate termion;
 
 mod hilbert;
 
+use hilbert::Point;
+
 use cidr::Cidr;
-use cidr::Ipv4Cidr;
 use cidr::IpCidr;
 use fastping_rs::Pinger;
 use fastping_rs::PingResult::{Idle, Receive};
 
-use regex::Regex;
 use std::collections::{HashMap};
 use std::env;
 use std::io::{Read, Write, stdout};
-use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool,Ordering};
@@ -34,16 +33,6 @@ use termion::{async_stdin, clear, cursor};
 #[derive(Debug, Clone)]
 pub struct Params {
     ip_strings: Vec<String>,
-}
-
-fn expand_ip_star(ipstr: &str, p: &mut Params){
-    println!("star: {:#?}", ipstr);
-    p.ip_strings.push(ipstr.to_string());
-}
-
-fn expand_ip_slash(ipstr: &str, p: &mut Params){
-    println!("slash: {:#?}", ipstr);
-    p.ip_strings.push(ipstr.to_string());
 }
 
 fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
@@ -75,9 +64,24 @@ fn parse_args() -> Params {
 }
              
 fn main() {
-    let out = hilbert::hilbert(3);
+    let out = hilbert::hilbert(2);
     println!("{:#?}", out);
-    let mut p = parse_args();
+    let mut stdout = stdout().into_raw_mode().unwrap();
+    //writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
+    //writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
+    for n in 0..64 {
+        let x = out[n].x as u16;
+        let y = out[n].y as u16;
+        //println!("{:?},{:?}",x,y);
+        writeln!(stdout,"{}{}", 
+                 cursor::Goto(x + 50,y + 20), 
+                 (n as u8+65) as char
+                 ).expect("X");
+    }
+    writeln!(stdout,"{}", cursor::Goto(1,60)).expect("X");
+
+    std::process::exit(0);
+    let p = parse_args();
     println!("params: {:#?}", p);
 
     //ctrlc
@@ -110,7 +114,7 @@ fn main() {
     let s2 = symbols.chars().nth(2).unwrap();
     let s1 = symbols.chars().nth(1).unwrap();
     let s0 = symbols.chars().nth(0).unwrap();
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    //let mut stdout = stdout().into_raw_mode().unwrap();
     let mut stdin = async_stdin().bytes();
     writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
     writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
@@ -150,5 +154,5 @@ fn main() {
             }
         }
     }
-    writeln!(stdout,"{}", cursor::Show).expect("Cout not hide cursor");
+    writeln!(stdout,"{}", cursor::Show).expect("Could not hide cursor");
 }
