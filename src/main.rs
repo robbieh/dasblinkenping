@@ -5,9 +5,12 @@
 
 extern crate cidr;
 extern crate ctrlc;
-extern crate termion;
+extern crate lsystem;
 extern crate rand;
 extern crate regex;
+extern crate termion;
+
+mod hilbert;
 
 use cidr::Cidr;
 use cidr::Ipv4Cidr;
@@ -72,6 +75,8 @@ fn parse_args() -> Params {
 }
              
 fn main() {
+    let out = hilbert::hilbert(3);
+    println!("{:#?}", out);
     let mut p = parse_args();
     println!("params: {:#?}", p);
 
