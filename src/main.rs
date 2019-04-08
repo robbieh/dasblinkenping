@@ -23,15 +23,35 @@ use std::io::{Read, Write, stdout};
 use std::str::FromStr;
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool,Ordering};
+use std::time::Duration;
+
 
 use termion::raw::IntoRawMode;
-use termion::{async_stdin, clear, cursor};
-
+use termion::{async_stdin, clear, cursor, style};
 
 #[derive(Debug, Clone)]
 pub struct Params {
     ip_strings: Vec<String>,
 }
+
+#[derive(Debug, Clone)]
+pub struct GuiState {
+    highlight: bool,
+    current: isize,
+    msgs: Vec<GuiMsg>
+}
+
+#[derive(Debug, Clone)]
+pub enum GuiMsg {
+    ShowStats,
+    ClearStats,
+}
+
+
+
+
+
+
 
 fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
     match cidr::IpCidr::from_str(ipcidr) {
@@ -62,6 +82,7 @@ fn parse_args() -> Params {
 }
              
 fn main() {
+    let mut gs = GuiState{ highlight: false, current: 1, msgs: Vec::new()};
     let p = parse_args();
     println!("params: {:#?}", p);
 
@@ -94,7 +115,10 @@ fn main() {
     }
     pinger.run_pinger();
 
-    let symbols = "∘○⊙⊚●⋅";
+    //let symbols = "∙∘⊙⊚● ";
+      let symbols = "∙∘⊙⊚● ";
+    //let symbols = "●⊚⊙∘∙ ";
+    //let symbols = "●●∘∘∙ ";
     let s5 = symbols.chars().nth(5).unwrap();
     let s4 = symbols.chars().nth(4).unwrap();
     let s3 = symbols.chars().nth(3).unwrap();
@@ -103,15 +127,23 @@ fn main() {
     let s0 = symbols.chars().nth(0).unwrap();
     let mut stdout = stdout().into_raw_mode().unwrap();
     let mut stdin = async_stdin().bytes();
+
     writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
-    writeln!(stdout,"{}", cursor::Hide).expect("Cout not hide cursor");
+    writeln!(stdout,"{}", cursor::Hide).expect("Could not hide cursor");
     'mainloop: loop{
         if ! running.load(Ordering::SeqCst) { 
             writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
             pinger.stop_pinger();
             break; 
         };
-        match results.recv() {
+        writeln!(stdout,"{}{}", cursor::Goto(1, size + 1), p.ip_strings[gs.current as usize]).expect("X");
+        match ips_hash.get(&p.ip_strings[gs.current as usize]) {
+            Some(pos) => {
+                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
+            },
+            None => {}
+        };
+        match results.recv_timeout(Duration::from_millis(100)) {
             Ok(result) => {
                 let (addr, rtt) = match result { 
                     Idle{addr}         => { (addr, 5000            as isize) },
@@ -123,18 +155,20 @@ fn main() {
                 };
                 writeln!(stdout,"{}", cursor::Goto(pos.x,pos.y)).expect("X");
                 if      rtt ==5000 { writeln!(stdout,"{}", s5).expect("X"); } 
-                else if rtt > 50  { writeln!(stdout,"{}", s4).expect("X"); } 
-                else if rtt > 25  { writeln!(stdout,"{}", s3).expect("X"); } 
-                else if rtt > 10  { writeln!(stdout,"{}", s2).expect("X"); }
-                else if rtt > 5   { writeln!(stdout,"{}", s1).expect("X"); }
-                else             { writeln!(stdout,"{}", s0).expect("X"); }
+                else if rtt > 2000 { writeln!(stdout,"{}", s4).expect("X"); } 
+                else if rtt > 1000 { writeln!(stdout,"{}", s3).expect("X"); } 
+                else if rtt > 100  { writeln!(stdout,"{}", s2).expect("X"); }
+                else if rtt > 10   { writeln!(stdout,"{}", s1).expect("X"); }
+                else               { writeln!(stdout,"{}", s0).expect("X"); }
             },
-            Err(_) => panic!("Could not run pinger"),
+            Err(_) => {},
         }
         writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
         for c in stdin.next() {
             match c.unwrap() {
                 b'q' => break 'mainloop,
+                b'+' => if gs.current < count as isize { gs.current = gs.current + 1},
+                b'-' => if gs.current > 1 { gs.current = gs.current - 1},
                 _ => {}
             }
         }
