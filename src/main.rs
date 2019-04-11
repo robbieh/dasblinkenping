@@ -20,14 +20,18 @@ use fastping_rs::PingResult::{Idle, Receive};
 use std::collections::{HashMap};
 use std::env;
 use std::io::{Read, Write, stdout};
+use std::io::prelude::*;
 use std::str::FromStr;
 use std::sync::{Arc};
+use std::sync::mpsc::{channel,Sender};
 use std::sync::atomic::{AtomicBool,Ordering};
 use std::time::Duration;
-
+use std::thread;
 
 use termion::raw::IntoRawMode;
 use termion::{async_stdin, clear, cursor, style};
+use termion::event::Key;
+use termion::input::TermRead;
 
 #[derive(Debug, Clone)]
 pub struct Params {
@@ -36,6 +40,7 @@ pub struct Params {
 
 #[derive(Debug, Clone)]
 pub struct GuiState {
+
     highlight: bool,
     current: isize,
     msgs: Vec<GuiMsg>
@@ -49,8 +54,15 @@ pub enum GuiMsg {
 
 
 
-
-
+fn keyboard_thread(tx: Sender<Key>){
+    let stdin = std::io::stdin();
+    for k in stdin.keys() {
+        match k {
+            Ok(k) => {tx.send(k).unwrap();},
+            Err(_) => {}
+        };
+    };
+}
 
 
 fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
@@ -108,15 +120,20 @@ fn main() {
         Ok((pinger, results)) => (pinger, results),
         Err(e) => panic!("Error creating pinger: {}",e)
     };
-        //println!("{:?},{:?}",x,y);
+    //println!("{:?},{:?}",x,y);
     for n in 0..count {
         pinger.add_ipaddr(&p.ip_strings[n]);
         ips_hash.insert(&p.ip_strings[n], hilbert_points[n].clone());
     }
     pinger.run_pinger();
 
+
+    //set up keyboard input thread
+    let (kbdtx, kbdrx) = channel();
+    thread::spawn(move || {keyboard_thread(kbdtx);});
+
     //let symbols = "∙∘⊙⊚● ";
-      let symbols = "∙∘⊙⊚● ";
+    let symbols = "∙∘⊙⊚● ";
     //let symbols = "●⊚⊙∘∙ ";
     //let symbols = "●●∘∘∙ ";
     let s5 = symbols.chars().nth(5).unwrap();
@@ -126,7 +143,7 @@ fn main() {
     let s1 = symbols.chars().nth(1).unwrap();
     let s0 = symbols.chars().nth(0).unwrap();
     let mut stdout = stdout().into_raw_mode().unwrap();
-    let mut stdin = async_stdin().bytes();
+    //let mut stdin = async_stdin().bytes();
 
     writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
     writeln!(stdout,"{}", cursor::Hide).expect("Could not hide cursor");
@@ -164,13 +181,16 @@ fn main() {
             Err(_) => {},
         }
         writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
-        for c in stdin.next() {
-            match c.unwrap() {
-                b'q' => break 'mainloop,
-                b'+' => if gs.current < count as isize { gs.current = gs.current + 1},
-                b'-' => if gs.current > 1 { gs.current = gs.current - 1},
-                _ => {}
-            }
+        match kbdrx.recv_timeout(Duration::from_millis(100)) {
+            Ok(k) =>  {
+                match k {
+                    Key::Char('q') => break 'mainloop,
+                    Key::Char('+') => if gs.current < (count - 1) as isize { gs.current = gs.current + 1},
+                    Key::Char('-') => if gs.current > 0 { gs.current = gs.current - 1},
+                    _ => {}
+                }
+            },
+            Err(_) => {},
         }
     }
     writeln!(stdout,"{}", cursor::Show).expect("Could not hide cursor");
