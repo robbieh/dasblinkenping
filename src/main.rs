@@ -176,7 +176,7 @@ fn main() {
         ip_point_hash.insert(&p.ip_strings[n], hilbert_points[n].clone());
         point_pos_hash.insert(hilbert_points[n].clone(),n);
         pos_point_hash.insert(n,hilbert_points[n].clone());
-        point_rtt_hash.insert(hilbert_points[n].clone(),0);
+        point_rtt_hash.insert(hilbert_points[n].clone(),5000);
     }
 
     pinger.run_pinger();
@@ -189,7 +189,7 @@ fn main() {
     thread::spawn(move || {keyboard_thread(proktx);});
 
     //let symbols = "∙∘⊙⊚● ";
-    let symbols = "∙∘⊙⊚●-";
+    let symbols = "∙∘⊙⊚● ";
     //let symbols = "●⊚⊙∘∙ ";
     //let symbols = "●●∘∘∙ ";
     let symvec: Vec<char> = symbols.chars().collect();
@@ -200,12 +200,26 @@ fn main() {
 
     'mainloop: loop{
         if ! running.load(Ordering::SeqCst) { 
-            write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
+            writeln!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
             pinger.stop_pinger();
             break; 
         };
-        write!(stdout,"{}{}", cursor::Goto(1, size + 1), p.ip_strings[cursor as usize]).expect("X");
+
+        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
+            Some(pos) => {
+                //for reasons I don't understand, using writeln! here really
+                //reduces responsiveness
+                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
+                //writeln!(stdout,"{}pos: {:?}              ", cursor::Goto(1, size + 3), pos).expect("X");
+            },
+            None => {}
+        };
+
+        writeln!(stdout,"{}IP: {}              ", cursor::Goto(1, size + 1), p.ip_strings[cursor as usize]).expect("X");
+        //writeln!(stdout,"{}cursor: {}              ", cursor::Goto(1, size + 2), cursor as usize).expect("X");
+
         match prokrx.recv() {
+            Err(_) => {},
             Ok(result) => {
                 match result  {
                     PingResultOrKey::Ping(mpresult) => {
@@ -213,31 +227,33 @@ fn main() {
                             MyPingResult::Idle{addr}         => { (addr, 5000            as isize) },
                             MyPingResult::Receive{addr, rtt} => { (addr, rtt.as_millis() as isize) }
                         };
-                        //write!(stdout,"{}", cursor::Goto(30,1)).expect("X");
-                        //write!(stdout,"{}, {}ms                   ",addr.to_string(),rtt).expect("X"); 
+
+                        //ugly debug
+                        //writeln!(stdout,"{}", cursor::Goto(30,1)).expect("X");
+                        //writeln!(stdout,"{}, {}ms                   ",addr.to_string(),rtt).expect("X"); 
+
                         let pos = match ip_point_hash.get(&addr.to_string()) {
                             Some(pos) => pos,
                             None => { continue }
                         };
                         point_rtt_hash.insert(pos.clone(),rtt);
-                        write!(stdout,"{}", cursor::Goto(pos.x,pos.y)).expect("X");
-                        write!(stdout,"{}", rtt_sym(&symvec,rtt)).expect("X");
+                        writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),rtt_sym(&symvec,rtt)).expect("X");
                     },
                     PingResultOrKey::Key(k) => {
                         match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
                             None => {},
                             Some(point) => {
-                                write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
                                 //writeln!(stdout,"{:?}", point_rtt_hash).expect("X");
                                 //writeln!(stdout,"{:?}", pos).expect("X");
                                 //writeln!(stdout,"hash> {:?} <", point_rtt_hash).expect("X");
                                 //writeln!(stdout,"point> {:?} <", point).expect("X");
                                 //writeln!(stdout,"rtt> {:?} <", point_rtt_hash.get(point)).expect("X");
+                                //restore symbol under cursor position
                                 match point_rtt_hash.get(point) {
                                     None => {},
                                     Some(rtt) => {
                                         let sym = rtt_sym(&symvec,*rtt);
-                                        write!(stdout,"{}{}", cursor::Goto(point.x,point.y),sym).expect("X");
+                                        writeln!(stdout,"{}{}", cursor::Goto(point.x,point.y),sym).expect("X");
                                     }
                                 };
                             }
@@ -246,29 +262,15 @@ fn main() {
                             Key::Char('q') => break 'mainloop,
                             Key::Char('n') => if cursor < (count - 1) as usize { cursor = cursor + 1},
                             Key::Char('p') => if cursor > 0 { cursor = cursor - 1},
-                            Key::Char('h') => { cursor = 
-                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, -1, 0)},
-                            Key::Char('j') => { cursor = 
-                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 0, 1)},
-                            Key::Char('k') => { cursor = 
-                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 0, -1)},
-                            Key::Char('l') => { cursor = 
-                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 1, 0)},
+                            Key::Char('h') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,-1,0)},
+                            Key::Char('j') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,1)},
+                            Key::Char('k') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,-1)},
+                            Key::Char('l') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,1,0)},
                             _ => {}
                         }
-                        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
-                            Some(pos) => {
-                                //for reasons I don't understand, using write! here really
-                                //reduces responsiveness
-                                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
-                            },
-                            None => {}
-                        };
-                        write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
                     }
                 }
             },
-            Err(_) => {},
         }
     }
     writeln!(stdout,"{}", cursor::Show).expect("Could not show cursor");
