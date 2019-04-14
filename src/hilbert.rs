@@ -6,7 +6,7 @@ use std::collections::HashMap;
 const L: &str  = "+RF-LFL-FR+";
 const R: &str  = "-LF+RFR+FL-";
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq,Eq,Hash)]
 pub struct Point {
     pub x: u16,
     pub y: u16

@@ -16,8 +16,9 @@ mod hilbert;
 use cidr::Cidr;
 use cidr::IpCidr;
 use fastping_rs::{Pinger,PingResult};
-use fastping_rs::PingResult::{Idle, Receive};
+//use fastping_rs::PingResult::{Idle, Receive};
 
+use std::cmp;
 use std::collections::{HashMap};
 use std::env;
 use std::io::{Write, stdout};
@@ -50,7 +51,6 @@ enum PingResultOrKey {
     Ping(MyPingResult),
     Key(Key)
 }
-
 
 
 #[derive(Debug, Clone)]
@@ -115,10 +115,40 @@ fn parse_args() -> Params {
     p
 }
 
+fn rtt_sym(symvec: &Vec<char>, rtt: isize) -> char {
+    if      rtt ==5000 { symvec[5] }
+    else if rtt > 2000 { symvec[4] }
+    else if rtt > 1000 { symvec[3] }
+    else if rtt > 100  { symvec[2] }
+    else if rtt > 10   { symvec[1] }
+    else               { symvec[0] }
+}
+
+fn get_adjacent(
+    point_pos_hash: &HashMap<hilbert::Point,usize>, 
+    pos_point_hash: &HashMap<usize,hilbert::Point>,
+    current: &usize,
+    size: &u16,
+    xdelta: i16, 
+    ydelta: i16
+) 
+    -> usize
+{
+    let pt = pos_point_hash.get(&current).unwrap();
+    let (mut x,mut y) = (pt.x as i16 + xdelta, pt.y as i16 + ydelta);
+    x = cmp::max(x,1i16);
+    y = cmp::max(y,1i16);
+    x = cmp::min(x,*size as i16);
+    y = cmp::min(y,*size as i16);
+    let newpt = hilbert::Point{x: x as u16, y: y as u16};
+    *point_pos_hash.get(&newpt).unwrap()
+
+
+}
 
 fn main() {
     let p = parse_args();
-    let mut cursor = 0; //cursor position on ip line
+    let mut cursor = 0 as usize; //cursor position on ip line
 
     //ctrlc
     let running = Arc::new(AtomicBool::new(true));
@@ -137,10 +167,16 @@ fn main() {
     let mut size = sqrt_again.ceil() as u16;
     size = (2.0_f64).powi(size as i32 ) as u16;
     let hilbert_points = hilbert::hilbert(sqrt_again.ceil() as isize);
-    let mut ips_hash = HashMap::new();
+    let mut ip_point_hash = HashMap::new();
+    let mut point_pos_hash = HashMap::new();
+    let mut pos_point_hash = HashMap::new();
+    let mut point_rtt_hash = HashMap::new();
     for n in 0..count {
         pinger.add_ipaddr(&p.ip_strings[n]);
-        ips_hash.insert(&p.ip_strings[n], hilbert_points[n].clone());
+        ip_point_hash.insert(&p.ip_strings[n], hilbert_points[n].clone());
+        point_pos_hash.insert(hilbert_points[n].clone(),n);
+        pos_point_hash.insert(n,hilbert_points[n].clone());
+        point_rtt_hash.insert(hilbert_points[n].clone(),0);
     }
 
     pinger.run_pinger();
@@ -156,12 +192,7 @@ fn main() {
     let symbols = "∙∘⊙⊚●-";
     //let symbols = "●⊚⊙∘∙ ";
     //let symbols = "●●∘∘∙ ";
-    let s5 = symbols.chars().nth(5).unwrap();
-    let s4 = symbols.chars().nth(4).unwrap();
-    let s3 = symbols.chars().nth(3).unwrap();
-    let s2 = symbols.chars().nth(2).unwrap();
-    let s1 = symbols.chars().nth(1).unwrap();
-    let s0 = symbols.chars().nth(0).unwrap();
+    let symvec: Vec<char> = symbols.chars().collect();
 
     let mut stdout = stdout().into_raw_mode().unwrap();
     writeln!(stdout,"{}", clear::All).expect("Could not clear screen");
@@ -174,14 +205,6 @@ fn main() {
             break; 
         };
         write!(stdout,"{}{}", cursor::Goto(1, size + 1), p.ip_strings[cursor as usize]).expect("X");
-        match ips_hash.get(&p.ip_strings[cursor as usize]) {
-            Some(pos) => {
-                //for reasons I don't understand, using write! here really
-                //reduces responsiveness
-                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
-            },
-            None => {}
-        };
         match prokrx.recv() {
             Ok(result) => {
                 match result  {
@@ -192,26 +215,56 @@ fn main() {
                         };
                         //write!(stdout,"{}", cursor::Goto(30,1)).expect("X");
                         //write!(stdout,"{}, {}ms                   ",addr.to_string(),rtt).expect("X"); 
-                        let pos = match ips_hash.get(&addr.to_string()) {
+                        let pos = match ip_point_hash.get(&addr.to_string()) {
                             Some(pos) => pos,
                             None => { continue }
                         };
+                        point_rtt_hash.insert(pos.clone(),rtt);
                         write!(stdout,"{}", cursor::Goto(pos.x,pos.y)).expect("X");
-                        if      rtt ==5000 { write!(stdout,"{}", s5).expect("X"); } 
-                        else if rtt > 2000 { write!(stdout,"{}", s4).expect("X"); } 
-                        else if rtt > 1000 { write!(stdout,"{}", s3).expect("X"); } 
-                        else if rtt > 100  { write!(stdout,"{}", s2).expect("X"); }
-                        else if rtt > 10   { write!(stdout,"{}", s1).expect("X"); }
-                        else               { write!(stdout,"{}", s0).expect("X"); }
+                        write!(stdout,"{}", rtt_sym(&symvec,rtt)).expect("X");
                     },
                     PingResultOrKey::Key(k) => {
-                        write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
-                            match k {
-                                Key::Char('q') => break 'mainloop,
-                                Key::Char('n') => if cursor < (count - 1) as isize { cursor = cursor + 1},
-                                Key::Char('p') => if cursor > 0 { cursor = cursor - 1},
-                                _ => {}
+                        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
+                            None => {},
+                            Some(point) => {
+                                write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
+                                //writeln!(stdout,"{:?}", point_rtt_hash).expect("X");
+                                //writeln!(stdout,"{:?}", pos).expect("X");
+                                //writeln!(stdout,"hash> {:?} <", point_rtt_hash).expect("X");
+                                //writeln!(stdout,"point> {:?} <", point).expect("X");
+                                //writeln!(stdout,"rtt> {:?} <", point_rtt_hash.get(point)).expect("X");
+                                match point_rtt_hash.get(point) {
+                                    None => {},
+                                    Some(rtt) => {
+                                        let sym = rtt_sym(&symvec,*rtt);
+                                        write!(stdout,"{}{}", cursor::Goto(point.x,point.y),sym).expect("X");
+                                    }
+                                };
                             }
+                        }
+                        match k {
+                            Key::Char('q') => break 'mainloop,
+                            Key::Char('n') => if cursor < (count - 1) as usize { cursor = cursor + 1},
+                            Key::Char('p') => if cursor > 0 { cursor = cursor - 1},
+                            Key::Char('h') => { cursor = 
+                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, -1, 0)},
+                            Key::Char('j') => { cursor = 
+                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 0, 1)},
+                            Key::Char('k') => { cursor = 
+                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 0, -1)},
+                            Key::Char('l') => { cursor = 
+                                get_adjacent(&point_pos_hash, &pos_point_hash, &cursor, &size, 1, 0)},
+                            _ => {}
+                        }
+                        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
+                            Some(pos) => {
+                                //for reasons I don't understand, using write! here really
+                                //reduces responsiveness
+                                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
+                            },
+                            None => {}
+                        };
+                        write!(stdout,"{}", cursor::Goto(1, size + 1)).expect("X");
                     }
                 }
             },
