@@ -53,11 +53,8 @@ enum PingResultOrKey {
 }
 
 
-#[derive(Debug, Clone)]
-pub enum GuiState { Clear, Stats, Auto }
-#[derive(Debug, Clone)]
-pub enum CliState { Show, Hide }
-
+#[derive(Debug, Clone, PartialEq)]
+pub enum UiState { Clear, Stats, CommandLine, Auto }
 
 fn keyboard_thread(tx: Sender<PingResultOrKey>){
     let stdin = std::io::stdin();
@@ -149,6 +146,7 @@ fn get_adjacent(
 fn main() {
     let p = parse_args();
     let mut cursor = 0 as usize; //cursor position on ip line
+    let mut ui = UiState::Clear;
 
     //ctrlc
     let running = Arc::new(AtomicBool::new(true));
@@ -205,17 +203,28 @@ fn main() {
             break; 
         };
 
-        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
-            Some(pos) => {
-                //for reasons I don't understand, using writeln! here really
-                //reduces responsiveness
-                writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),"X").expect("X");
-                //writeln!(stdout,"{}pos: {:?}              ", cursor::Goto(1, size + 3), pos).expect("X");
+        //show cursor and IP
+        match ui {
+            UiState::Clear => {
+                writeln!(stdout,"{}                  ", cursor::Goto(1, size + 1)).expect("X");
             },
-            None => {}
-        };
+            UiState::Stats => {
+                writeln!(stdout,"{}IP: {}              ", cursor::Goto(1, size + 1), p.ip_strings[cursor as usize])
+                    .expect("X");
+                match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
+                    Some(point) => {
+                        writeln!(stdout,"{}{}{}{}", cursor::Goto(point.x,point.y),
+                            style::Invert,
+                            rtt_sym(&symvec,*point_rtt_hash.get(point).unwrap()),
+                            style::NoInvert,
+                            ).expect("X");
+                    },
+                    None => {}
+                };
+            },
+            _ => {}
+        }
 
-        writeln!(stdout,"{}IP: {}              ", cursor::Goto(1, size + 1), p.ip_strings[cursor as usize]).expect("X");
         //writeln!(stdout,"{}cursor: {}              ", cursor::Goto(1, size + 2), cursor as usize).expect("X");
 
         match prokrx.recv() {
@@ -240,33 +249,25 @@ fn main() {
                         writeln!(stdout,"{}{}", cursor::Goto(pos.x,pos.y),rtt_sym(&symvec,rtt)).expect("X");
                     },
                     PingResultOrKey::Key(k) => {
-                        match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
-                            None => {},
-                            Some(point) => {
-                                //writeln!(stdout,"{:?}", point_rtt_hash).expect("X");
-                                //writeln!(stdout,"{:?}", pos).expect("X");
-                                //writeln!(stdout,"hash> {:?} <", point_rtt_hash).expect("X");
-                                //writeln!(stdout,"point> {:?} <", point).expect("X");
-                                //writeln!(stdout,"rtt> {:?} <", point_rtt_hash.get(point)).expect("X");
-                                //restore symbol under cursor position
-                                match point_rtt_hash.get(point) {
-                                    None => {},
-                                    Some(rtt) => {
-                                        let sym = rtt_sym(&symvec,*rtt);
-                                        writeln!(stdout,"{}{}", cursor::Goto(point.x,point.y),sym).expect("X");
-                                    }
-                                };
+                        if ui != UiState::Clear {
+                            match ip_point_hash.get(&p.ip_strings[cursor as usize]) {
+                                None => {},
+                                Some(point) => {
+                                    //restore symbol under cursor position
+                                    match point_rtt_hash.get(point) {
+                                        None => {},
+                                        Some(rtt) => {
+                                            let sym = rtt_sym(&symvec,*rtt);
+                                            writeln!(stdout,"{}{}", cursor::Goto(point.x,point.y),sym).expect("X");
+                                        }
+                                    };
+                                }
                             }
                         }
                         match k {
                             Key::Char('q') => break 'mainloop,
-                            Key::Char('n') => if cursor < (count - 1) as usize { cursor = cursor + 1},
-                            Key::Char('p') => if cursor > 0 { cursor = cursor - 1},
-                            Key::Char('h') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,-1,0)},
-                            Key::Char('j') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,1)},
-                            Key::Char('k') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,-1)},
-                            Key::Char('l') => {cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,1,0)},
-                            _ => {}
+                            Key::Esc => { ui = UiState::Clear; }
+                            _ => {handle_key(&k,&mut ui,&mut cursor,&size,&count,&point_pos_hash,&pos_point_hash)}
                         }
                     }
                 }
@@ -274,4 +275,25 @@ fn main() {
         }
     }
     writeln!(stdout,"{}", cursor::Show).expect("Could not show cursor");
+}
+
+fn handle_key(
+    k: &Key,
+    ui: &mut UiState,
+    cursor: &mut usize,
+    size: &u16,
+    count: &usize,
+    point_pos_hash: &HashMap<hilbert::Point,usize>, 
+    pos_point_hash: &HashMap<usize,hilbert::Point>,
+    ) {
+    if *ui == UiState::Clear { *ui = UiState::Stats };
+    match *k {
+        Key::Char('n') => if *cursor < (count - 1) { *cursor = *cursor + 1},
+        Key::Char('p') => if *cursor > 0 { *cursor = *cursor - 1},
+        Key::Char('h') => {*cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,-1,0)},
+        Key::Char('j') => {*cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,1)},
+        Key::Char('k') => {*cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,0,-1)},
+        Key::Char('l') => {*cursor=get_adjacent(&point_pos_hash,&pos_point_hash,&cursor,&size,1,0)},
+        _ => {}
+    }
 }
