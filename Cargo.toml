@@ -1,8 +1,8 @@
 [package]
 name = "dasblinkenping"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Robbie Huffman <robbie.huffman@gmail.com>"]
-edition = "2018"
+edition = "2019"
 
 [dependencies]
 cidr = "0.1"

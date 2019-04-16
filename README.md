@@ -7,24 +7,25 @@ your terminal.
 
 ## What it looks like
 
+The IPs are laid out on a Hilbert curve.
 
 ```
-⋅○⋅⋅⋅⋅⋅⋅⋅⋅⋅⊚⊚⊚⋅⊚
-⋅●●⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⊚⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⊚⊚●⊚⋅⋅⋅⋅⋅⋅⊚⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅●⊚⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅
-⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⊚⋅⋅⋅
+●               
+                
+∙∙∙             
+ ⊙            ●●
+              ● 
+            ● ● 
+                
+                
+              ●∘
+              ∘⊙
+                
+                
+                
+                
+ ●              
+
 ```
 
 ## Usage
@@ -37,9 +38,12 @@ For example:
 
 Press 'q' to quit.
 
+Press 'h', 'j', 'k', or 'l' to move cursor. 'Esc' to clear the cursor.
+
+Press 'n'ext or 'p'revious to move cursor to next/previous IP. This makes it easier to trace the Hilbert curve.
+
 ## Wanze (bugs) und Einschränkungen (limitations)
 
 * CTRL-C doesn't work.
-* Not ipv6 compliant.
-* Chews up a lot of CPU.
+* Probably has other weird behaviors.
 
