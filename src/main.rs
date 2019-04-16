@@ -131,16 +131,20 @@ fn get_adjacent(
 ) 
     -> usize
 {
-    let pt = pos_point_hash.get(&current).unwrap();
+    let pt = match pos_point_hash.get(&current) {
+        None => return 0,
+        Some(pt) => pt
+    };
     let (mut x,mut y) = (pt.x as i16 + xdelta, pt.y as i16 + ydelta);
     x = cmp::max(x,1i16);
     y = cmp::max(y,1i16);
     x = cmp::min(x,*size as i16);
     y = cmp::min(y,*size as i16);
     let newpt = hilbert::Point{x: x as u16, y: y as u16};
-    *point_pos_hash.get(&newpt).unwrap()
-
-
+    match point_pos_hash.get(&newpt) {
+        None => *current,
+        Some(pos) => *pos
+    }
 }
 
 fn main() {
@@ -240,6 +244,7 @@ fn main() {
                         //ugly debug
                         //writeln!(stdout,"{}", cursor::Goto(30,1)).expect("X");
                         //writeln!(stdout,"{}, {}ms                   ",addr.to_string(),rtt).expect("X"); 
+                        //writeln!(stdout,"{}{}", cursor::Goto(30,1),count).expect("X");
 
                         let pos = match ip_point_hash.get(&addr.to_string()) {
                             Some(pos) => pos,
