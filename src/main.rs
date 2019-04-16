@@ -96,6 +96,12 @@ fn expand_ip_cidr(ipcidr: &str, p: &mut Params){
                     //println!("cidr ip: {:#?}", ip);
                     p.ip_strings.push(ip.to_string());
                 }
+            } else {
+                let cidr6 = <IpCidr>::from(cidr);
+                for ip in cidr6.iter() {
+                    println!("cidr ip: {:#?}", ip);
+                    p.ip_strings.push(ip.to_string());
+                }
             }
         },
         _ => { println!("not a cidr: {:#?}", ipcidr);}
@@ -164,6 +170,10 @@ fn main() {
     };
 
     let count = p.ip_strings.len();
+    if count == 0 {
+        println!("No usuable IPs or CIDRs were supplied.");
+        std::process::exit(1);
+    }
     let sqrt = (count as f64).sqrt();
     let sqrt_again = (sqrt as f64).sqrt();
     let mut size = sqrt_again.ceil() as u16;
