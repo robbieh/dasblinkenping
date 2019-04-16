@@ -2,7 +2,7 @@
 name = "dasblinkenping"
 version = "0.2.0"
 authors = ["Robbie Huffman <robbie.huffman@gmail.com>"]
-edition = "2019"
+edition = "2018"
 
 [dependencies]
 cidr = "0.1"
