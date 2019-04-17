@@ -9,24 +9,8 @@ your terminal.
 
 The IPs are laid out on a Hilbert curve.
 
-```
-●               
-                
-∙∙∙             
- ⊙            ●●
-              ● 
-            ● ● 
-                
-                
-              ●∘
-              ∘⊙
-                
-                
-                
-                
- ●              
+![dasblinkenping](../assets/dasblinkenping.gif?raw=true)
 
-```
 
 ## Usage
 
